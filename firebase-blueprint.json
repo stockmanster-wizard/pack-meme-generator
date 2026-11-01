@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "RecipientConfig": {
+      "title": "RecipientConfig",
+      "description": "Server-persisted recipient roster and autonomous schedule configuration.",
+      "type": "object",
+      "properties": {
+        "selfEmail": { "type": "string", "maxLength": 254 },
+        "friendEmails": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 254 }
+        },
+        "mode": { "type": "string", "enum": ["test_self", "pack_automation"] },
+        "autoSendEnabled": { "type": "boolean" },
+        "scheduledHour": { "type": "number" },
+        "scheduledMinute": { "type": "number" },
+        "intervalMinutes": { "type": "number" },
+        "nextScheduledRunAt": { "type": "number" },
+        "lastSentAt": { "type": "number" },
+        "lastSentSubject": { "type": "string", "maxLength": 500 },
+        "lastSentMode": { "type": "string", "maxLength": 50 },
+        "lastError": { "type": "string", "maxLength": 1000 }
+      },
+      "required": ["selfEmail", "friendEmails", "mode", "autoSendEnabled", "intervalMinutes"]
+    },
+    "StyleCritiqueRecord": {
+      "title": "StyleCritiqueRecord",
+      "description": "Persistent multimodal vision critique and prompt correction record.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "number" },
+        "passed": { "type": "boolean" },
+        "defects": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 500 }
+        },
+        "fixes": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 500 }
+        }
+      },
+      "required": ["timestamp", "passed", "defects", "fixes"]
+    },
+    "DispatchLog": {
+      "title": "DispatchLog",
+      "description": "Record of a sent Pack meme email dispatch.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "timestamp": { "type": "number" },
+        "subject": { "type": "string", "maxLength": 500 },
+        "recipients": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 254 }
+        },
+        "cc": { "type": "string", "maxLength": 254 },
+        "mode": { "type": "string", "enum": ["test_self", "pack_automation"] },
+        "status": { "type": "string", "enum": ["success", "failed"] },
+        "messageId": { "type": "string", "maxLength": 256 },
+        "error": { "type": "string", "maxLength": 1000 }
+      },
+      "required": ["id", "timestamp", "subject", "recipients", "mode", "status"]
+    }
+  },
+  "firestore": {
+    "/pack_config/{configId}": {
+      "schema": { "$ref": "#/entities/RecipientConfig" },
+      "description": "Active server configuration and schedule state."
+    },
+    "/pack_style_memory/{memoryId}": {
+      "schema": { "$ref": "#/entities/StyleCritiqueRecord" },
+      "description": "Persistent visual style critique records."
+    },
+    "/pack_dispatch_logs/{logId}": {
+      "schema": { "$ref": "#/entities/DispatchLog" },
+      "description": "Historical log of dispatched Pack meme emails."
+    }
+  }
+}

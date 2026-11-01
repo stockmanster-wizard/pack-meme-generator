@@ -1,0 +1,6 @@
+{
+  "name": "The Pack Meme Blaster",
+  "description": "Generate badass r/THE_PACK memes with embedded inline images and automated Gmail dispatch to your friends.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

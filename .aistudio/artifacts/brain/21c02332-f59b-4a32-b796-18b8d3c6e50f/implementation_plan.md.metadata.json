@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan to eliminate repetitive top-text hooks and bottom-text topics by removing literal prompt anchors, introducing a 5-category programmatic Phase 1 Hook Selector, expanding Phase 2 topics to 20+ diverse buckets, and persisting recent caption history in Firestore to block back-to-back repeats.",
+  "updatedAt":  "2026-10-24T19:48:27.908418906Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

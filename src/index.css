@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .font-pack-headline {
+    font-family: 'Oswald', Impact, sans-serif;
+  }
+  .font-pack-gothic {
+    font-family: 'Cinzel', serif;
+  }
+  .font-pack-body {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+}
+
+/* Chrome metallic text effect */
+.text-chrome {
+  background: linear-gradient(180deg, #ffffff 0%, #b0bec5 50%, #78909c 51%, #cfd8dc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Flame fire text effect */
+.text-flame {
+  background: linear-gradient(180deg, #fffb00 0%, #ff8c00 45%, #ff2a00 80%, #7a0000 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

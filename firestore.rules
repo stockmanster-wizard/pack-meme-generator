@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isValidConfig() {
+      return incoming().selfEmail is string
+        && incoming().selfEmail.size() <= 254
+        && incoming().friendEmails is list
+        && incoming().friendEmails.size() <= 200
+        && incoming().mode in ['test_self', 'pack_automation']
+        && incoming().autoSendEnabled is bool
+        && incoming().intervalMinutes is number
+        && incoming().intervalMinutes >= 1
+        && incoming().intervalMinutes <= 10080;
+    }
+
+    function isValidStyleMemory() {
+      return incoming().timestamp is number
+        && incoming().passed is bool
+        && incoming().defects is list
+        && incoming().defects.size() <= 25
+        && incoming().fixes is list
+        && incoming().fixes.size() <= 25;
+    }
+
+    function isValidDispatchLog() {
+      return incoming().id is string
+        && incoming().id.size() <= 128
+        && incoming().timestamp is number
+        && incoming().subject is string
+        && incoming().subject.size() <= 500
+        && incoming().recipients is list
+        && incoming().recipients.size() <= 205
+        && incoming().mode in ['test_self', 'pack_automation']
+        && incoming().status in ['success', 'failed'];
+    }
+
+    match /pack_config/{configId} {
+      allow get, list: if configId == 'default';
+      allow create, update: if configId == 'default' && isValidConfig();
+    }
+
+    match /pack_style_memory/{memoryId} {
+      allow get, list: if true;
+      allow create, update: if isValidStyleMemory();
+      allow delete: if true;
+    }
+
+    match /pack_dispatch_logs/{logId} {
+      allow get, list: if true;
+      allow create, update: if isValidDispatchLog();
+    }
+  }
+}

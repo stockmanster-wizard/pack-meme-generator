@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build and test outputs
+dist/
+build/
+coverage/
+
+# OS and logs
+.DS_Store
+*.log
+*.local
+
+# Secrets and local configurations
+.env*
+!.env.example
+firebase-applet-config.json
+!.firebase-applet-config.example.json
+.pack-server-store.json
+
+# Local editor/IDE directories
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
