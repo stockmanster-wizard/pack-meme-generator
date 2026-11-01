@@ -191,6 +191,10 @@ export async function sendServerPackMemeEmail(
       },
     });
 
+    const isJpeg = cleanBase64.startsWith('/9j/') || params.rawBase64Png.includes('image/jpeg');
+    const mimeType = isJpeg ? 'image/jpeg' : 'image/png';
+    const filename = isJpeg ? 'pack_meme.jpg' : 'pack_meme.png';
+
     const mailOptions: SendMailOptions = {
       from: `"The Pack Meme Blaster" <${gmailUser}>`,
       to: toList,
@@ -200,9 +204,11 @@ export async function sendServerPackMemeEmail(
       html: htmlBody,
       attachments: [
         {
-          filename: 'pack_meme.png',
+          filename,
           content: Buffer.from(cleanBase64, 'base64'),
           cid: contentId,
+          contentType: mimeType,
+          contentDisposition: 'inline',
         },
       ],
     };
