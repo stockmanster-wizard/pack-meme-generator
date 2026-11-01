@@ -4,6 +4,7 @@
  */
 
 import { OAuth2Client } from 'google-auth-library';
+import nodemailer, { SendMailOptions } from 'nodemailer';
 
 export interface ServerSendMemeEmailParams {
   accessToken?: string;
@@ -32,6 +33,20 @@ export function setServerCachedAccessToken(token: string | null): void {
 
 export function getServerCachedAccessToken(): string | null {
   return cachedBrowserAccessToken;
+}
+
+export function isServerEmailConfigured(): boolean {
+  if (process.env.GMAIL_APP_PASSWORD && process.env.GMAIL_APP_PASSWORD.trim()) {
+    return true;
+  }
+  if (
+    process.env.GMAIL_CLIENT_ID &&
+    process.env.GMAIL_CLIENT_SECRET &&
+    process.env.GMAIL_REFRESH_TOKEN
+  ) {
+    return true;
+  }
+  return Boolean(cachedBrowserAccessToken);
 }
 
 async function resolveGmailAccessToken(explicitToken?: string): Promise<string> {
@@ -87,19 +102,18 @@ function escapeHtml(text: string): string {
 export async function sendServerPackMemeEmail(
   params: ServerSendMemeEmailParams
 ): Promise<ServerSendResult> {
-  const accessToken = await resolveGmailAccessToken(params.accessToken);
-  const boundary = `----=_Part_PackMeme_${Date.now()}_${Math.random().toString(36).substring(2)}`;
   const contentId = 'pack_meme_cid_1';
-
-  const toHeader = params.toRecipients.filter(Boolean).join(', ');
+  const toList = params.toRecipients.filter(Boolean);
   const ccHeader = params.ccRecipient ? params.ccRecipient.trim() : '';
-  const bccHeader = params.bccRecipients
-    ? params.bccRecipients.map((e) => e.trim()).filter(Boolean).join(', ')
-    : '';
+  const bccList = params.bccRecipients
+    ? params.bccRecipients.map((e) => e.trim()).filter(Boolean)
+    : [];
 
-  if (!toHeader) {
+  if (toList.length === 0) {
     throw new Error('No recipient email addresses provided.');
   }
+
+  const cleanBase64 = params.rawBase64Png.replace(/^data:image\/\w+;base64,/, '');
 
   // Identical RFC 2822 multipart/related HTML email body with inline CID image
   const htmlBody = `
@@ -163,13 +177,54 @@ export async function sendServerPackMemeEmail(
 </html>
   `.trim();
 
+  // PATH 1: Send via Nodemailer using Gmail App Password (if configured)
+  const appPassword = process.env.GMAIL_APP_PASSWORD?.trim();
+  const gmailUser = process.env.GMAIL_USER?.trim() || toList[0];
+
+  if (appPassword) {
+    const cleanAppPassword = appPassword.replace(/\s+/g, '');
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: gmailUser,
+        pass: cleanAppPassword,
+      },
+    });
+
+    const mailOptions: SendMailOptions = {
+      from: `"The Pack Meme Blaster" <${gmailUser}>`,
+      to: toList,
+      cc: ccHeader || undefined,
+      bcc: bccList.length > 0 ? bccList : undefined,
+      subject: params.subject,
+      html: htmlBody,
+      attachments: [
+        {
+          filename: 'pack_meme.png',
+          content: Buffer.from(cleanBase64, 'base64'),
+          cid: contentId,
+        },
+      ],
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return {
+      success: true,
+      messageId: info.messageId,
+    };
+  }
+
+  // PATH 2: Fall back to Google OAuth2 API
+  const accessToken = await resolveGmailAccessToken(params.accessToken);
+  const boundary = `----=_Part_PackMeme_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+
   let mimeMessage = '';
-  mimeMessage += `To: ${toHeader}\r\n`;
+  mimeMessage += `To: ${toList.join(', ')}\r\n`;
   if (ccHeader) {
     mimeMessage += `Cc: ${ccHeader}\r\n`;
   }
-  if (bccHeader) {
-    mimeMessage += `Bcc: ${bccHeader}\r\n`;
+  if (bccList.length > 0) {
+    mimeMessage += `Bcc: ${bccList.join(', ')}\r\n`;
   }
   mimeMessage += `Subject: ${params.subject}\r\n`;
   mimeMessage += `MIME-Version: 1.0\r\n`;
@@ -187,7 +242,7 @@ export async function sendServerPackMemeEmail(
   mimeMessage += `Content-Transfer-Encoding: base64\r\n`;
   mimeMessage += `Content-ID: <${contentId}>\r\n`;
   mimeMessage += `Content-Disposition: inline; filename="pack_meme.png"\r\n\r\n`;
-  mimeMessage += `${chunkBase64(params.rawBase64Png)}\r\n\r\n`;
+  mimeMessage += `${chunkBase64(cleanBase64)}\r\n\r\n`;
 
   // End Boundary
   mimeMessage += `--${boundary}--\r\n`;

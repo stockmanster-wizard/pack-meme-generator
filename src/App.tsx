@@ -96,12 +96,16 @@ export default function App() {
 
   // 1b. Hydrate and poll RecipientConfig from Server (Firestore)
   const isDispatchingCronRef = useRef(false);
+  const [isServerEmailConfigured, setIsServerEmailConfigured] = useState<boolean>(false);
 
   const fetchServerConfig = useCallback(async (): Promise<RecipientConfig | null> => {
     try {
       const res = await fetch('/api/config');
       if (!res.ok) return null;
       const data = await res.json();
+      if (data?.emailConfigured !== undefined) {
+        setIsServerEmailConfigured(Boolean(data.emailConfigured));
+      }
       if (data?.success && data.config) {
         setConfig((prev) => {
           const merged: RecipientConfig = { ...prev, ...data.config };
@@ -326,11 +330,11 @@ export default function App() {
   // 4. Send Email (Self-Test or Crew BCC Blast) with Embedded Inline CID Image
   const handleSendTestEmail = async () => {
     const token = auth.accessToken || (await getAccessToken());
-    if (!token) {
+    if (!token && !isServerEmailConfigured) {
       setToast({
         type: 'error',
         message: 'Gmail Not Connected',
-        details: 'Please click "Sign in with Google" above to allow sending emails.',
+        details: 'Configure GMAIL_APP_PASSWORD in .env or click "Sign in with Google" above.',
       });
       return;
     }
@@ -349,14 +353,36 @@ export default function App() {
 
     setIsSending(true);
     try {
-      const result = await sendPackMemeEmail({
-        accessToken: token,
-        toRecipients: [config.selfEmail],
-        ccRecipient: isCrewMode ? undefined : config.selfEmail,
-        bccRecipients: bccList,
-        subject: meme.subject,
-        rawBase64Png: meme.rawBase64,
-      });
+      let result: { success: boolean; messageId?: string; threadId?: string; error?: string };
+
+      if (isServerEmailConfigured) {
+        const res = await fetch('/api/meme/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accessToken: token || undefined,
+            toRecipients: [config.selfEmail],
+            ccRecipient: isCrewMode ? undefined : config.selfEmail,
+            bccRecipients: bccList,
+            subject: meme.subject,
+            rawBase64Png: meme.rawBase64,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Server email dispatch failed.');
+        }
+        result = data;
+      } else {
+        result = await sendPackMemeEmail({
+          accessToken: token!,
+          toRecipients: [config.selfEmail],
+          ccRecipient: isCrewMode ? undefined : config.selfEmail,
+          bccRecipients: bccList,
+          subject: meme.subject,
+          rawBase64Png: meme.rawBase64,
+        });
+      }
 
       handleUpdateConfig({
         lastSentAt: Date.now(),
@@ -445,6 +471,7 @@ export default function App() {
         onLogin={handleLogin}
         onLogout={handleLogout}
         isLoggingIn={isLoggingIn}
+        isServerEmailConfigured={isServerEmailConfigured}
       />
 
       {/* Main Content Area */}
@@ -577,14 +604,14 @@ export default function App() {
 
             <button
               onClick={handleSendTestEmail}
-              disabled={isSending || isGeneratingMeme || !auth.isAuthenticated}
+              disabled={isSending || isGeneratingMeme || (!auth.isAuthenticated && !isServerEmailConfigured)}
               className="py-3 px-4 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white rounded-xl font-pack-headline text-sm font-bold tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-orange-950/50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className={`w-4 h-4 ${isSending ? 'animate-bounce' : ''}`} />
               <span>
                 {isSending
                   ? 'SENDING TO GMAIL...'
-                  : !auth.isAuthenticated
+                  : !auth.isAuthenticated && !isServerEmailConfigured
                   ? 'SIGN IN ABOVE TO SEND'
                   : config.mode === 'pack_automation'
                   ? `BLAST TO CREW (${config.friendEmails.length} BCC)`

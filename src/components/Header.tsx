@@ -12,6 +12,7 @@ interface HeaderProps {
   onLogin: () => void;
   onLogout: () => void;
   isLoggingIn: boolean;
+  isServerEmailConfigured?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLogin,
   onLogout,
   isLoggingIn,
+  isServerEmailConfigured,
 }) => {
   return (
     <header className="w-full bg-[#111620] border-b border-neutral-800 px-4 md:px-8 py-3.5 sticky top-0 z-50 shadow-lg">
@@ -82,6 +84,11 @@ export const Header: React.FC<HeaderProps> = ({
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Sign out</span>
               </button>
+            </div>
+          ) : isServerEmailConfigured ? (
+            <div className="flex items-center gap-2 bg-emerald-950/60 border border-emerald-600/50 rounded-lg px-3 py-1.5 shadow-sm text-xs font-semibold text-emerald-300">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>GMAIL SMTP READY</span>
             </div>
           ) : (
             <button

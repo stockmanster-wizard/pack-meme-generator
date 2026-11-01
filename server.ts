@@ -31,6 +31,7 @@ import {
 import {
   sendServerPackMemeEmail,
   setServerCachedAccessToken,
+  isServerEmailConfigured,
 } from './src/services/gmailServerSender.js';
 
 dotenv.config();
@@ -526,7 +527,7 @@ app.get('/api/config', async (_req: Request, res: Response) => {
         console.error('[GET /api/config] Background overdue dispatch error:', err?.message || err);
       });
     }
-    res.json({ success: true, config });
+    res.json({ success: true, config, emailConfigured: isServerEmailConfigured() });
   } catch (error: any) {
     console.error('GET /api/config error:', error);
     res.status(500).json({ success: false, error: error.message || 'Failed to load config' });
@@ -540,10 +541,43 @@ app.post('/api/config', async (req: Request, res: Response) => {
       setServerCachedAccessToken(accessToken);
     }
     const updated = await saveStoredConfig(configUpdates);
-    res.json({ success: true, config: updated });
+    res.json({ success: true, config: updated, emailConfigured: isServerEmailConfigured() });
   } catch (error: any) {
     console.error('POST /api/config error:', error);
     res.status(500).json({ success: false, error: error.message || 'Failed to save config' });
+  }
+});
+
+// Direct send endpoint for web client (uses server credentials, e.g. Gmail App Password)
+app.post('/api/meme/send', async (req: Request, res: Response) => {
+  try {
+    const {
+      toRecipients,
+      ccRecipient,
+      bccRecipients,
+      subject,
+      rawBase64Png,
+      isDebraCare,
+      accessToken,
+    } = req.body || {};
+
+    const result = await sendServerPackMemeEmail({
+      accessToken,
+      toRecipients: toRecipients || [],
+      ccRecipient,
+      bccRecipients,
+      subject,
+      rawBase64Png,
+      isDebraCare,
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('POST /api/meme/send error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to send meme email via server.',
+    });
   }
 });
 
