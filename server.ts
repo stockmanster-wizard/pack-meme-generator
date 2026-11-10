@@ -126,18 +126,17 @@ function pickHookStyle(): Phase1HookStyle {
   return chosen;
 }
 
-// Rolling De-Duplicated Phase 2 Topic Bucket Selector
-function pickTopicCategory(): Phase2TopicBucket {
-  const available = PHASE2_TOPIC_BUCKETS.filter((t) => !recentTopicBucketIds.includes(t.id));
+// Rolling Persistent De-Duplicated Phase 2 Topic Bucket & Resolution Selector
+async function pickPersistentTopicCategory(): Promise<{ topicBucket: Phase2TopicBucket; recentResolutions: string[] }> {
+  const config = await getStoredConfig();
+  const recentTopics = Array.isArray(config.recentTopicIds) ? config.recentTopicIds : [];
+  const recentResolutions = Array.isArray(config.recentResolutions) ? config.recentResolutions : [];
+
+  const available = PHASE2_TOPIC_BUCKETS.filter((t) => !recentTopics.includes(t.id));
   const pool = available.length > 0 ? available : PHASE2_TOPIC_BUCKETS;
   const chosen = pool[Math.floor(Math.random() * pool.length)];
 
-  recentTopicBucketIds.push(chosen.id);
-  if (recentTopicBucketIds.length > MAX_TRACKED_HISTORY) {
-    recentTopicBucketIds.shift();
-  }
-
-  return chosen;
+  return { topicBucket: chosen, recentResolutions };
 }
 
 // Step 1: Dynamic 2-Phase Copywriting & Asset Prompt Synthesis via LLM
@@ -147,11 +146,15 @@ async function planPackMeme(
   renderingPreset: RenderingStylePreset
 ): Promise<PackMemePlan & { renderingPresetId?: string }> {
   const hookStyle = pickHookStyle();
-  const topicBucket = pickTopicCategory();
+  const { topicBucket, recentResolutions } = await pickPersistentTopicCategory();
   const lengthConfig = pickLengthTier();
   const learnedDirectives = StyleMemoryBank.getActiveCorrectionDirectives();
   const learnedRulesBlock = learnedDirectives.length > 0
     ? `\nACTIVE LEARNED RULES (FROM RECENT VISION REVIEWS):\n${learnedDirectives.map((d) => `- ${d}`).join('\n')}\n`
+    : '';
+
+  const antiRepetitionBlock = recentResolutions.length > 0
+    ? `\nCRITICAL NOVELTY & ANTI-REPETITION DIRECTIVE:\nDo NOT repeat, paraphrase, or echo any of these recent bottom-text punchlines. Invent a completely fresh, original metaphor and phrasing:\n${recentResolutions.slice(-8).map((r) => `- "${r}"`).join('\n')}\n`
     : '';
 
   const prompt = `Generate a fresh, original, authentic r/THE_PACK meme adhering strictly to your system instructions.
@@ -174,7 +177,7 @@ Focus specifically on the theme of ${topicBucket.name}: ${topicBucket.directive}
 SELECTED BOTTOM TEXT LENGTH TIER (assigned with 1/3 probability):
 ${lengthConfig.wordGuideline}
 CRITICAL: Phase 2 MUST strictly follow this exact length tier (${lengthConfig.tier}). Do not exceed or undercut this word range.
-${learnedRulesBlock}
+${learnedRulesBlock}${antiRepetitionBlock}
 Ensure Phase 1 is a bold 3-8 word aggressive hook in FULL UPPERCASE spoken in the unhinged earnest voice of this character that sets up maximum dramatic contrast, and ensure Phase 2 resolves with extreme specificity to the chosen theme of ${topicBucket.name}.
 Generate a unique ALL CAPS Pack subject line based on the meme.
 Assemble the complete end-to-end image prompt formatted with:
@@ -236,6 +239,16 @@ Assemble the complete end-to-end image prompt formatted with:
 
   const parsed = JSON.parse(response.text?.trim() || '{}') as PackMemePlan & { renderingPresetId?: string };
   parsed.renderingPresetId = renderingPreset.id;
+
+  // Persist recent topic ID and resolution to prevent repetition
+  const currentConfig = await getStoredConfig();
+  const updatedTopics = [...(currentConfig.recentTopicIds || []), topicBucket.id].slice(-12);
+  const updatedResolutions = [...(currentConfig.recentResolutions || []), parsed.phase2Resolution].slice(-10);
+  await saveStoredConfig({
+    recentTopicIds: updatedTopics,
+    recentResolutions: updatedResolutions,
+  });
+
   return parsed;
 }
 

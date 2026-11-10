@@ -40,6 +40,8 @@ export interface RecipientConfig {
   lastSentSubject: string | null;
   lastSentMode: 'test_self' | 'pack_automation' | null;
   lastError?: string | null;
+  recentTopicIds?: string[];
+  recentResolutions?: string[];
 }
 
 export interface DispatchLog {
