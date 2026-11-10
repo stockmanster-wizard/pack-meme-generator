@@ -1,5 +1,9 @@
 # THE PACK MEME BLASTER ⚡ AROOOOO!
 
+<div align="center">
+<img width="500" alt="The Pack Sample Meme" src="assets/pack-sample.jpg" style="border-radius: 12px; border: 3px solid #ea580c;" />
+</div>
+
 Automated **r/THE_PACK** heavy-metal meme generator and autonomous daily email dispatcher powered by Google Gemini.
 
 ---
